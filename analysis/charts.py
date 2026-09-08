@@ -24,31 +24,31 @@ def _empty_fig(message: str = "No data available") -> go.Figure:
 
 
 def portfolio_vs_benchmark_chart(portfolio_value: pd.Series, benchmark: pd.Series) -> go.Figure:
-    """Portfolio value ($) vs S&P 500 index level, on a dual y-axis."""
+    """Portfolio vs S&P 500 performance, both indexed to 100 at the start date
+    so they share one axis and are directly comparable."""
     if portfolio_value.empty:
         return _empty_fig()
 
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    normalized_portfolio = portfolio_value.div(portfolio_value.iloc[0]).mul(100)
+
+    fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=portfolio_value.index, y=portfolio_value.values,
-            name="Portfolio Value", line=dict(color=MAIZE, width=2.5),
-        ),
-        secondary_y=False,
+            x=normalized_portfolio.index, y=normalized_portfolio.values,
+            name="Portfolio", line=dict(color=MAIZE, width=2.5),
+        )
     )
     if not benchmark.empty:
+        normalized_benchmark = benchmark.div(benchmark.iloc[0]).mul(100)
         fig.add_trace(
             go.Scatter(
-                x=benchmark.index, y=benchmark.values,
+                x=normalized_benchmark.index, y=normalized_benchmark.values,
                 name=benchmark.name or "S&P 500", line=dict(color="#5B9BD5", width=2, dash="dot"),
-            ),
-            secondary_y=True,
+            )
         )
-    fig.update_yaxes(title_text="Portfolio Value ($)", secondary_y=False)
-    fig.update_yaxes(title_text="S&P 500 Index Level", secondary_y=True)
     fig.update_layout(
-        template=TEMPLATE, title="Portfolio Value vs S&P 500",
-        xaxis_title="Date", height=450, hovermode="x unified",
+        template=TEMPLATE, title="Portfolio vs S&P 500 (Indexed to 100)",
+        xaxis_title="Date", yaxis_title="Indexed Value (Base = 100)", height=450, hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     return fig
