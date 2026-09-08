@@ -1,4 +1,4 @@
-# Portfolio Analytics Dashboard
+# Stock Portfolio Analysis
 
 An interactive personal stock portfolio analytics dashboard built with Streamlit. It pulls live and historical price data from Yahoo Finance and turns it into the kind of return, risk, and correlation analysis you'd normally need a brokerage terminal for — running entirely on your own machine, against your own holdings.
 

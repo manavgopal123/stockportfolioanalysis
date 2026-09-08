@@ -1,4 +1,4 @@
-"""Personal Stock Portfolio Analytics Dashboard."""
+"""Stock Portfolio Analysis dashboard."""
 
 from datetime import datetime
 
@@ -14,7 +14,7 @@ POSITIVE = "#3DDC84"
 NEGATIVE = "#FF6B6B"
 NEUTRAL = "#FFFFFF"
 
-st.set_page_config(page_title="Portfolio Analytics Dashboard", layout="wide", page_icon="📈")
+st.set_page_config(page_title="Stock Portfolio Analysis", layout="wide", page_icon="📈")
 
 st.markdown(
     f"""
@@ -115,7 +115,7 @@ if st.sidebar.button("Refresh Data", use_container_width=True):
 # Header
 # ---------------------------------------------------------------------------
 
-st.title("Portfolio Analytics Dashboard")
+st.title("Stock Portfolio Analysis")
 st.caption(f"Last updated: {datetime.now().strftime('%B %d, %Y %I:%M %p')}")
 
 tickers = list(st.session_state.portfolio.keys())
