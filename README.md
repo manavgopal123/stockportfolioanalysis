@@ -28,8 +28,8 @@ Most "portfolio trackers" just show you what you own and what it's worth today. 
 
 ```bash
 # clone the repo
-git clone https://github.com/<your-username>/finance-dashboard.git
-cd finance-dashboard
+git clone https://github.com/manavgopal123/stockportfolioanalysis.git
+cd stockportfolioanalysis
 
 # create and activate a virtual environment
 python -m venv venv
