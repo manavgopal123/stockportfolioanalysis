@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from analysis import charts, metrics
-from data import portfolio as portfolio_data
+from data import persistence, portfolio as portfolio_data
 
 NAVY = "#00274C"
 MAIZE = "#FFCB05"
@@ -72,9 +72,21 @@ def sentiment_of(value: float) -> str | None:
 # ---------------------------------------------------------------------------
 
 if "portfolio" not in st.session_state:
-    st.session_state.portfolio = dict(portfolio_data.DEFAULT_PORTFOLIO)
+    loaded, persistence_ok = persistence.load_portfolio()
+    st.session_state.persistence_ok = persistence_ok
+    if loaded:
+        st.session_state.portfolio = loaded
+    else:
+        st.session_state.portfolio = dict(portfolio_data.DEFAULT_PORTFOLIO)
+        if persistence_ok:
+            persistence.save_portfolio(st.session_state.portfolio)
+    st.session_state._last_saved_portfolio = dict(st.session_state.portfolio)
 
 st.sidebar.title("Portfolio Settings")
+if st.session_state.persistence_ok:
+    st.sidebar.caption("Synced to Supabase")
+else:
+    st.sidebar.caption("Offline — changes won't be saved (check Supabase connection)")
 
 with st.sidebar.form("add_ticker_form", clear_on_submit=True):
     st.markdown("**Add Holdings**")
@@ -100,6 +112,10 @@ else:
         if col3.button("Remove", key=f"remove_{ticker}"):
             del st.session_state.portfolio[ticker]
             st.rerun()
+
+if st.session_state.persistence_ok and st.session_state.portfolio != st.session_state._last_saved_portfolio:
+    if persistence.save_portfolio(st.session_state.portfolio):
+        st.session_state._last_saved_portfolio = dict(st.session_state.portfolio)
 
 st.sidebar.divider()
 period_label = st.sidebar.selectbox(
