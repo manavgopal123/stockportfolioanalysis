@@ -77,6 +77,10 @@ Holdings are saved to Supabase so they survive a page refresh. To enable it:
 
 Without this file, the app still runs fine — it just falls back to the default portfolio every session instead of persisting changes (the sidebar will show "Offline" instead of "Synced to Supabase").
 
+## Deployment
+
+The app is deployed on [Streamlit Community Cloud](https://share.streamlit.io) (connected to this GitHub repo, `app.py` as the entry point, Supabase credentials set via the app's Secrets panel — not committed to git). Access is restricted to specific email addresses in the app's sharing settings, since the app has no login system of its own and all visitors would otherwise share the same `portfolio_holdings` data (see Future Improvements).
+
 ## Screenshots
 
 *(placeholder — add screenshots of the three dashboard pages here)*
@@ -87,4 +91,4 @@ Without this file, the app still runs fine — it just falls back to the default
 - Sector-level allocation breakdown (currently allocation is by individual holding only)
 - Configurable risk-free rate and benchmark ticker
 - Export holdings/metrics to CSV or PDF
-- Deploy a hosted version on Streamlit Community Cloud (Vercel isn't compatible — Streamlit needs a persistent process, which doesn't fit Vercel's serverless model), making the app installable to a phone's home screen
+- Multi-user support — today `portfolio_holdings` is a single shared table with no login, so the deployed app is restricted to one person via Streamlit Cloud's email allowlist rather than per-user data isolation. If this is ever shared with other users, it needs real auth (e.g. Supabase Auth) and a `user_id` column scoping each person's rows.
