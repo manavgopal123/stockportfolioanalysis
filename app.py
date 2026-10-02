@@ -96,6 +96,16 @@ with st.sidebar.form("add_ticker_form", clear_on_submit=True):
         for t in [x.strip().upper() for x in new_tickers.split(",") if x.strip()]:
             st.session_state.portfolio[t] = new_shares
 
+def sync_portfolio() -> None:
+    """Save the current portfolio to Supabase if it differs from what's saved."""
+    if (
+        st.session_state.persistence_ok
+        and st.session_state.portfolio != st.session_state._last_saved_portfolio
+    ):
+        if persistence.save_portfolio(st.session_state.portfolio):
+            st.session_state._last_saved_portfolio = dict(st.session_state.portfolio)
+
+
 st.sidebar.markdown("**Current Holdings**")
 if not st.session_state.portfolio:
     st.sidebar.caption("No holdings yet — add a ticker above.")
@@ -111,11 +121,10 @@ else:
         st.session_state.portfolio[ticker] = shares_val
         if col3.button("Remove", key=f"remove_{ticker}"):
             del st.session_state.portfolio[ticker]
+            sync_portfolio()
             st.rerun()
 
-if st.session_state.persistence_ok and st.session_state.portfolio != st.session_state._last_saved_portfolio:
-    if persistence.save_portfolio(st.session_state.portfolio):
-        st.session_state._last_saved_portfolio = dict(st.session_state.portfolio)
+sync_portfolio()
 
 st.sidebar.divider()
 period_label = st.sidebar.selectbox(
