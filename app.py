@@ -74,7 +74,7 @@ def sentiment_of(value: float) -> str | None:
 if "portfolio" not in st.session_state:
     loaded, persistence_ok = persistence.load_portfolio()
     st.session_state.persistence_ok = persistence_ok
-    if loaded:
+    if loaded is not None:
         st.session_state.portfolio = loaded
     else:
         st.session_state.portfolio = dict(portfolio_data.DEFAULT_PORTFOLIO)
