@@ -1,12 +1,11 @@
-"""Supabase-backed persistence for the user's portfolio holdings."""
+"""Supabase-backed persistence for the watchlist and the keep/sell rules."""
 
 import streamlit as st
 from supabase import Client, create_client
 
-TABLE = "portfolio_holdings"
-# Marks the table as set up, so a deliberately empty portfolio isn't mistaken
-# for a first run (which would re-seed the defaults).
-INITIALIZED_MARKER = "__initialized__"
+WATCHLIST_TABLE = "watchlist"
+SETTINGS_TABLE = "app_settings"
+RULES_KEY = "rules"
 
 
 @st.cache_resource
@@ -14,35 +13,44 @@ def _client() -> Client:
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 
-def load_portfolio() -> tuple[dict | None, bool]:
-    """Load saved holdings from Supabase.
-
-    Returns (portfolio, ok). portfolio is None when nothing has ever been
-    saved (first run) or Supabase could not be reached; an empty dict means
-    the user deliberately cleared their holdings. ok is False only on a
-    connection failure.
-    """
+def load_watchlist() -> tuple[dict, bool]:
+    """Returns ({ticker: buy_price}, ok). ok is False only if Supabase could not be reached."""
     try:
-        response = _client().table(TABLE).select("ticker, shares").execute()
+        rows = _client().table(WATCHLIST_TABLE).select("ticker, buy_price").execute().data
     except Exception:
-        return None, False
-
-    holdings = {row["ticker"]: row["shares"] for row in response.data}
-    was_initialized = INITIALIZED_MARKER in holdings
-    holdings.pop(INITIALIZED_MARKER, None)
-    if not was_initialized and not holdings:
-        return None, True
-    return holdings, True
+        return {}, False
+    return {row["ticker"]: float(row["buy_price"] or 0) for row in rows}, True
 
 
-def save_portfolio(portfolio: dict) -> bool:
-    """Overwrite saved holdings in Supabase with the current portfolio dict."""
+def save_watchlist(watchlist: dict) -> bool:
+    """Make the saved watchlist match `watchlist`. Upserts first so it is never briefly empty."""
     try:
         client = _client()
-        client.table(TABLE).delete().neq("ticker", "").execute()
-        rows = [{"ticker": t, "shares": s} for t, s in portfolio.items()]
-        rows.append({"ticker": INITIALIZED_MARKER, "shares": 0})
-        client.table(TABLE).insert(rows).execute()
+        if watchlist:
+            rows = [{"ticker": t, "buy_price": p} for t, p in watchlist.items()]
+            client.table(WATCHLIST_TABLE).upsert(rows).execute()
+            client.table(WATCHLIST_TABLE).delete().not_.in_("ticker", list(watchlist)).execute()
+        else:
+            client.table(WATCHLIST_TABLE).delete().neq("ticker", "").execute()
+        return True
+    except Exception:
+        return False
+
+
+def load_rules() -> tuple[dict | None, bool]:
+    """Returns (rules, ok). rules is None if none have been saved yet."""
+    try:
+        rows = (
+            _client().table(SETTINGS_TABLE).select("value").eq("key", RULES_KEY).execute().data
+        )
+    except Exception:
+        return None, False
+    return (rows[0]["value"] if rows else None), True
+
+
+def save_rules(rules: dict) -> bool:
+    try:
+        _client().table(SETTINGS_TABLE).upsert({"key": RULES_KEY, "value": rules}).execute()
         return True
     except Exception:
         return False

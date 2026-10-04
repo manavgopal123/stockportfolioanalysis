@@ -1,72 +1,76 @@
 # Stock Portfolio Analysis
 
-An interactive personal stock portfolio analytics dashboard built with Streamlit. It pulls live and historical price data from Yahoo Finance and turns it into the kind of return, risk, and correlation analysis you'd normally need a brokerage terminal for — running entirely on your own machine, against your own holdings.
+A personal stock tracker built with Streamlit. Add stocks with a buy price, and for each one see how it is doing over a time window you choose, using price-based metrics and rules you set. Each stock is flagged **Keep**, **Review**, or **Sell candidate** so you can decide what to hold.
 
-## Motivation
-
-Most "portfolio trackers" just show you what you own and what it's worth today. This project goes a step further: it computes the metrics that actually describe how a portfolio is performing — annualized return, volatility, Sharpe ratio, beta, drawdown, correlation — and visualizes them so patterns (concentration risk, correlated holdings, drawdown periods) are easy to spot at a glance.
+The flags are rule-based prompts to take a second look at a stock. They are not financial advice, and price history can't predict the future.
 
 ## Features
 
-- **Configurable portfolio** — add or remove any ticker and set share counts directly from the sidebar
-- **Selectable date ranges** — 1M, 3M, 6M, 1Y, 2Y, 5Y
-- **Portfolio Overview** — total value, total/annualized return, Sharpe ratio, max drawdown, and beta as headline metric cards, plus a portfolio-vs-S&P-500 chart, allocation pie chart, and a full holdings table
-- **Performance Analysis** — normalized (base-100) performance across all holdings, cumulative returns, rolling 30-day volatility, and a per-stock metrics table
-- **Risk Analysis** — correlation heatmap, daily-return distribution histograms, portfolio-vs-benchmark scatter, and a risk/return bubble chart sized by portfolio weight
-- **Graceful error handling** — invalid or delisted tickers are reported and excluded rather than breaking the app
-- **Cached data fetching** — market data is cached for an hour so navigating the dashboard doesn't re-hit Yahoo Finance on every interaction
-- **Persistent holdings** — your portfolio is saved to Supabase as you edit it, so it survives page refreshes instead of resetting to the default
+- **Watchlist with editable buy prices** — add any ticker, leave the buy price at 0 to use today's price, and change it any time in the sidebar. Tickers Yahoo doesn't recognize are rejected when you add them.
+- **Time windows** — 1M, 3M, 6M, 1Y, 2Y, 5Y
+- **One table for every stock** — gain/loss vs your buy price, today's move, return over the window, performance vs the S&P 500, drop from the window high, position vs a moving average, volatility, and the reasons behind each signal
+- **Adjustable rules** — loss from buy price, gain from buy price, price below a moving average, drop from window high, lagging the S&P 500. Each can be switched off and has its own threshold, and you choose how many triggered rules make a Sell candidate.
+- **Inspect a stock** — price chart with 50-day and long moving averages and your buy price line, plus a rule-by-rule checklist showing what triggered and why
+- **Everything saved** — your stocks, buy prices and rules are stored in Supabase, so they survive a refresh and are the same on every device
+
+## How the numbers are calculated
+
+- Prices are daily closes, adjusted for splits but with dividends not added back, so they match the quotes you see. All returns are price returns.
+- **vs Buy** = latest price / buy price - 1
+- **Window return** = latest price / price at the start of the window - 1
+- **vs S&P 500** = the stock's window return minus the S&P 500's, in percentage points
+- **From High** = latest price / highest close in the window - 1
+- **vs N-day average** = latest price / its N-day average close - 1
+- **Volatility** = standard deviation of daily returns in the window x sqrt(252)
+- **Signal** = number of triggered rules: 0 is Keep, 1 or more is Review, and at or above the "sell candidate" count is Sell candidate
 
 ## Tech Stack
 
-- [Streamlit](https://streamlit.io/) — web dashboard framework
-- [yfinance](https://github.com/ranaroussi/yfinance) — live/historical market data
-- [pandas](https://pandas.pydata.org/) — data manipulation and financial calculations
-- [Plotly](https://plotly.com/python/) — interactive charts
-- [NumPy](https://numpy.org/) — numerical calculations
-- [Supabase](https://supabase.com/) — persists your portfolio holdings across sessions
+- [Streamlit](https://streamlit.io/) — web app
+- [yfinance](https://github.com/ranaroussi/yfinance) — market data
+- [pandas](https://pandas.pydata.org/) and [NumPy](https://numpy.org/) — calculations
+- [Plotly](https://plotly.com/python/) — charts
+- [Supabase](https://supabase.com/) — saves the watchlist and rules
 
 ## Installing and Running Locally
 
 ```bash
-# clone the repo
 git clone https://github.com/manavgopal123/stockportfolioanalysis.git
 cd stockportfolioanalysis
 
-# create and activate a virtual environment
 python -m venv venv
 venv\Scripts\activate      # Windows
 source venv/bin/activate   # macOS/Linux
 
-# install dependencies
 pip install -r requirements.txt
-
-# run the app
 streamlit run app.py
 ```
 
-The app opens at `http://localhost:8501`. The sidebar comes pre-loaded with a default 8-stock portfolio (AAPL, MSFT, GOOGL, AMZN, TSLA, JPM, V, NVDA) — customize it freely from there.
+The app opens at `http://localhost:8501`.
 
-### Setting up persistence (Supabase)
-
-Holdings are saved to Supabase so they survive a page refresh. To enable it:
+### Setting up Supabase
 
 1. Create a free project at [supabase.com](https://supabase.com)
-2. In the SQL Editor, create the table (with Row Level Security enabled):
+2. In the SQL Editor, run:
    ```sql
-   create table portfolio_holdings (
+   create table if not exists watchlist (
      ticker text primary key,
-     shares numeric not null
+     buy_price numeric not null default 0
    );
 
-   alter table portfolio_holdings enable row level security;
+   create table if not exists app_settings (
+     key text primary key,
+     value jsonb not null
+   );
 
-   create policy "Allow app access to portfolio_holdings"
-   on portfolio_holdings
-   for all
-   to anon
-   using (true)
-   with check (true);
+   alter table watchlist enable row level security;
+   alter table app_settings enable row level security;
+
+   create policy "Allow app access to watchlist" on watchlist
+     for all to anon using (true) with check (true);
+
+   create policy "Allow app access to app_settings" on app_settings
+     for all to anon using (true) with check (true);
    ```
 3. From **Project Settings → API**, copy the **Project URL** and **anon public key**
 4. Create `.streamlit/secrets.toml` (already gitignored) with:
@@ -75,20 +79,15 @@ Holdings are saved to Supabase so they survive a page refresh. To enable it:
    SUPABASE_KEY = "your-anon-public-key"
    ```
 
-Without this file, the app still runs fine — it just falls back to the default portfolio every session instead of persisting changes (the sidebar will show "Offline" instead of "Synced to Supabase").
+Without this, the app still runs, but the sidebar shows "Offline" and nothing is saved between sessions.
 
 ## Deployment
 
-The app is deployed on [Streamlit Community Cloud](https://share.streamlit.io) (connected to this GitHub repo, `app.py` as the entry point, Supabase credentials set via the app's Secrets panel — not committed to git). Access is restricted to specific email addresses in the app's sharing settings, since the app has no login system of its own and all visitors would otherwise share the same `portfolio_holdings` data (see Future Improvements).
-
-## Screenshots
-
-*(placeholder — add screenshots of the three dashboard pages here)*
+Deployed on [Streamlit Community Cloud](https://share.streamlit.io) from this repo, with `app.py` as the entry point and the Supabase credentials set in the app's Secrets panel (never committed to git). Access is restricted to specific email addresses in the app's sharing settings. The app has no login of its own, so every visitor would otherwise share the same watchlist.
 
 ## Future Improvements
 
-- Support for multiple saved portfolios / watchlists
-- Sector-level allocation breakdown (currently allocation is by individual holding only)
-- Configurable risk-free rate and benchmark ticker
-- Export holdings/metrics to CSV or PDF
-- Multi-user support — today `portfolio_holdings` is a single shared table with no login, so the deployed app is restricted to one person via Streamlit Cloud's email allowlist rather than per-user data isolation. If this is ever shared with other users, it needs real auth (e.g. Supabase Auth) and a `user_id` column scoping each person's rows.
+- Per-stock rule overrides (for example a tighter loss limit for a volatile stock)
+- Company fundamentals (P/E, earnings growth) alongside the price rules
+- Alerts when a stock newly becomes a Sell candidate
+- Multi-user support: real auth (for example Supabase Auth) and a `user_id` column scoping each person's rows
